@@ -1,5 +1,4 @@
 import messageModel from '../models/message.js';
-import { io } from '../index.js';
 import catchAsyncError from '../middlewares/catchAsyncError.js';
 import ErrorHandler from '../utils/errorHandler.js';
 
@@ -17,11 +16,6 @@ export const sendMessage = catchAsyncError(async (req, res, next) => {
         { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    // io.to(receiverSocketId).emit('newMessage', newMessage);
-
-    // Emit the message to the receiver via Socket.IO if online
-    // const receiverSocketId = '';
-
     res.status(200).json({
         message: 'Message sent successfully',
         success: true,
@@ -32,21 +26,25 @@ export const sendMessage = catchAsyncError(async (req, res, next) => {
 export const getAllMessages = catchAsyncError(async (req, res, next) => {
     const { senderId, receiverId } = req.params;
 
-    let conversation = await messageModel.findOne({
-        $or: [
-            { senderId, receiverId },
-            { senderId: receiverId, receiverId: senderId },
-        ],
-    });
+    let conversation = await messageModel
+        .findOne({
+            $or: [
+                { senderId, receiverId },
+                { senderId: receiverId, receiverId: senderId },
+            ],
+        })
+        .select('messages -_id');
+
     // .populate('senderId receiverId')
     if (!conversation) {
         return next(new ErrorHandler(404, 'Conversation not found'));
     }
 
-    conversation = conversation.messages.sort(
-        (a, b) => b.timestamp - a.timestamp
-    );
-
+    // if (conversation) {
+    //     conversation.messages.sort((a, b) => {
+    //         return new Date(b.timestamp) - new Date(a.timestamp);
+    //     });
+    // }
     // console.log(conversation);
 
     res.status(200).json({

@@ -64,27 +64,34 @@ export const io = new Server(server, {
     cors: { origin: 'http://localhost:5173', credentials: true },
 });
 
-global.users = new Map();
+let onlineUsers = [];
 
 io.on('connection', async (socket) => {
     // console.log('user connected');
 
-    socket.on('add-user', (userId) => {
-        users.set(userId, socket.id);
-        // console.log(users);
+    socket.on('addNewUser', (userId) => {
+        !onlineUsers.some((user) => user.userId === userId) &&
+            onlineUsers.push({ userId, socketId: socket.id });
+        // console.log(onlineUsers);
     });
 
-    socket.on('send-message', (data) => {
-        // console.log(data);
-        const receiverSocketId = users.get(data.to);
-        console.log(receiverSocketId);
-        if (receiverSocketId) {
-            io.to(receiverSocketId).emit('send-message', data.conversation);
+    io.emit('getOnlineUsers', onlineUsers);
+
+    // socket.on('receive', (result) => {
+    //     console.log(result);
+    // });
+
+    socket.on('sendMessage', (data) => {
+        const user = onlineUsers.find((user) => user.userId == data.to);
+        if (user) {
+            io.to(user.socketId).emit('receiveMessage', data.conversation);
         }
     });
 
     socket.on('disconnect', async () => {
         console.log('user disconnected');
+        onlineUsers = onlineUsers.filter((user) => user.socketId !== socket.id);
+        io.emit('getOnlineUsers', onlineUsers);
     });
 });
 // 404 error middleware
